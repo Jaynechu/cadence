@@ -28,73 +28,42 @@ struct NoteWrite: ParsableCommand {
             throw ExitCode.failure
         }
 
-        // Fail early if multiple notes share this title
-        let dups = try db.query(
-            """
-            SELECT n.Z_PK as id, f.ZTITLE2 as folder_name
-            FROM ZICCLOUDSYNCINGOBJECT n
-            LEFT JOIN ZICCLOUDSYNCINGOBJECT f ON n.ZFOLDER = f.Z_PK
-            WHERE n.Z_ENT = 12 AND n.ZTITLE1 = ? AND n.ZMARKEDFORDELETION = 0
-            """,
-            bindings: [title]
-        )
-        if dups.count > 1 {
-            fputs("Ambiguous: \(dups.count) notes share title \"\(title)\":\n", stderr)
-            for dup in dups {
-                let did = dup["id"] as? Int64 ?? 0
-                let df = dup["folder_name"] as? String ?? "?"
-                fputs("  id=\(did) folder=\"\(df)\"\n", stderr)
-            }
+        let metaRows = try db.query("SELECT Z_UUID FROM Z_METADATA LIMIT 1")
+        guard let storeUUID = metaRows.first?["Z_UUID"] as? String else {
+            fputs("Could not read Notes store UUID.\n", stderr)
             throw ExitCode.failure
         }
-
-        let escapedTitle = ScriptRunner.escapeForAppleScript(title)
+        let asId = "x-coredata://\(storeUUID)/ICNote/p\(id)"
         let escapedBody = ScriptRunner.escapeForAppleScript(body)
 
         let script: String
 
         if append {
-            // Read existing body first, then append
             script = """
             tell application "Notes"
-                set noteList to every note whose name is "\(escapedTitle)"
-                if (count of noteList) > 0 then
-                    set n to item 1 of noteList
-                    set currentBody to body of n
-                    set body of n to currentBody & "<br>\(escapedBody)"
-                    return "ok"
-                else
-                    return "not_found"
-                end if
+                set n to first note whose id is "\(asId)"
+                set currentBody to body of n
+                set body of n to currentBody & "<br>\(escapedBody)"
+                return "ok"
             end tell
             """
         } else {
+            let escapedTitle = ScriptRunner.escapeForAppleScript(title)
             let htmlBody = "<html><body><h1>\(escapedTitle)</h1><p>\(escapedBody)</p></body></html>"
             let escapedHTML = ScriptRunner.escapeForAppleScript(htmlBody)
             script = """
             tell application "Notes"
-                set noteList to every note whose name is "\(escapedTitle)"
-                if (count of noteList) > 0 then
-                    set body of item 1 of noteList to "\(escapedHTML)"
-                    return "ok"
-                else
-                    return "not_found"
-                end if
+                set n to first note whose id is "\(asId)"
+                set body of n to "\(escapedHTML)"
+                return "ok"
             end tell
             """
         }
 
-        let result: String
         do {
-            result = try ScriptRunner.osascript(script)
+            try ScriptRunner.osascript(script)
         } catch {
             fputs("AppleScript error: \(error.localizedDescription)\n", stderr)
-            throw ExitCode.failure
-        }
-
-        let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed == "not_found" {
-            fputs("Note \"\(title)\" not found in Notes app.\n", stderr)
             throw ExitCode.failure
         }
 

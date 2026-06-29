@@ -33,39 +33,17 @@ struct NoteRead: ParsableCommand {
 
         let folderName = row["folder_name"] as? String ?? ""
 
-        // Fail early if multiple notes share this title
-        let dups = try db.query(
-            """
-            SELECT n.Z_PK as id, f.ZTITLE2 as folder_name
-            FROM ZICCLOUDSYNCINGOBJECT n
-            LEFT JOIN ZICCLOUDSYNCINGOBJECT f ON n.ZFOLDER = f.Z_PK
-            WHERE n.Z_ENT = 12 AND n.ZTITLE1 = ? AND n.ZMARKEDFORDELETION = 0
-            """,
-            bindings: [title]
-        )
-        if dups.count > 1 {
-            fputs("Ambiguous: \(dups.count) notes share title \"\(title)\":\n", stderr)
-            for dup in dups {
-                let did = dup["id"] as? Int64 ?? 0
-                let df = dup["folder_name"] as? String ?? "?"
-                fputs("  id=\(did) folder=\"\(df)\"\n", stderr)
-            }
+        let metaRows = try db.query("SELECT Z_UUID FROM Z_METADATA LIMIT 1")
+        guard let storeUUID = metaRows.first?["Z_UUID"] as? String else {
+            fputs("Could not read Notes store UUID.\n", stderr)
             throw ExitCode.failure
         }
-
-        // Use AppleScript to fetch full body by title
-        let escapedTitle = title.replacingOccurrences(of: "\\", with: "\\\\")
-                                .replacingOccurrences(of: "\"", with: "\\\"")
+        let asId = "x-coredata://\(storeUUID)/ICNote/p\(id)"
 
         let script = """
         tell application "Notes"
-            set noteList to every note whose name is "\(escapedTitle)"
-            if (count of noteList) > 0 then
-                set n to item 1 of noteList
-                return body of n
-            else
-                return ""
-            end if
+            set n to first note whose id is "\(asId)"
+            return body of n
         end tell
         """
 
