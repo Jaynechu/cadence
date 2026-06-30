@@ -17,6 +17,7 @@ struct RemCreate: ParsableCommand {
     @Option(name: .long, help: "Notes.") var notes: String?
     @Option(name: .long, help: "URL.") var url: String?
     @Flag(name: .long, help: "Flag this reminder.") var flag: Bool = false
+    @Option(name: .long, help: "Repeat spec FREQ;INTERVAL e.g. monthly;1, yearly;1.") var `repeat`: String?
 
     func run() throws {
         let dueDate = due.flatMap { DateUtil.parseInput($0) }
@@ -40,6 +41,23 @@ struct RemCreate: ParsableCommand {
             }
             if let s = startDate {
                 reminder.startDateComponents = DateUtil.dateComponentsInMelbourne(s)
+            }
+
+            if let repeatSpec = self.`repeat` {
+                let parts = repeatSpec.split(separator: ";", maxSplits: 1)
+                if parts.count == 2, let interval = Int(parts[1]), interval > 0 {
+                    let freqMap: [String: EKRecurrenceFrequency] = [
+                        "daily": .daily, "weekly": .weekly, "monthly": .monthly, "yearly": .yearly
+                    ]
+                    if let freq = freqMap[String(parts[0]).lowercased()] {
+                        let rule = EKRecurrenceRule(recurrenceWith: freq, interval: interval, end: nil)
+                        reminder.recurrenceRules = [rule]
+                    } else {
+                        fputs("Unknown repeat frequency '\(parts[0])'. Use daily/weekly/monthly/yearly.\n", stderr)
+                    }
+                } else {
+                    fputs("Invalid repeat spec '\(repeatSpec)'. Use FREQ;INTERVAL e.g. monthly;1\n", stderr)
+                }
             }
 
             // Find list
