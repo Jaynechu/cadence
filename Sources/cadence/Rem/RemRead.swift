@@ -1,4 +1,7 @@
 import ArgumentParser
+import CoreLocation
+import Darwin
+import EventKit
 import Foundation
 
 struct RemRead: ParsableCommand {
@@ -55,7 +58,8 @@ struct RemRead: ParsableCommand {
                r.ZCREATIONDATE as creation_date, r.ZALLDAY as all_day,
                r.ZICSURL as url,
                l.ZNAME as list_name,
-               r.ZPARENTREMINDER as parent_id
+               r.ZPARENTREMINDER as parent_id,
+               r.ZDACALENDARITEMUNIQUEIDENTIFIER as uid
         FROM ZREMCDREMINDER r
         LEFT JOIN ZREMCDBASELIST l ON r.ZLIST = l.Z_PK
         \(whereClause)
@@ -66,10 +70,53 @@ struct RemRead: ParsableCommand {
 
         let rows = try db.query(sql)
 
+        guard !rows.isEmpty else {
+            printOutput(rows, locations: [:])
+            return
+        }
+
+        // Location data lives in EventKit alarms, not SQLite — batch-fetch for the
+        // already-filtered row set only (never used for filtering/sorting).
+        let store = EKEventStore()
+        store.requestFullAccessToReminders { granted, _ in
+            var locations: [String: [String: Any]] = [:]
+            if granted {
+                for row in rows {
+                    guard let uid = row["uid"] as? String,
+                          let reminder = store.calendarItem(withIdentifier: uid) as? EKReminder,
+                          let loc = self.extractLocation(reminder) else { continue }
+                    locations[uid] = loc
+                }
+            }
+            self.printOutput(rows, locations: locations)
+            Darwin.exit(0)
+        }
+        dispatchMain()
+    }
+
+    func extractLocation(_ reminder: EKReminder) -> [String: Any]? {
+        guard let alarms = reminder.alarms else { return nil }
+        for alarm in alarms {
+            guard let loc = alarm.structuredLocation else { continue }
+            var dict: [String: Any] = [:]
+            if let title = loc.title, !title.isEmpty { dict["title"] = title }
+            // EventKit round-trips an unset geoLocation as CLLocation(0,0) ("Null Island")
+            // instead of nil once persisted — treat exact (0,0) as absent, not a real coordinate.
+            if let geo = loc.geoLocation, geo.coordinate.latitude != 0 || geo.coordinate.longitude != 0 {
+                dict["latitude"] = geo.coordinate.latitude
+                dict["longitude"] = geo.coordinate.longitude
+            }
+            if dict.isEmpty { continue }
+            return dict
+        }
+        return nil
+    }
+
+    func printOutput(_ rows: [[String: Any?]], locations: [String: [String: Any]]) {
         if human && !json {
-            printHuman(rows)
+            printHuman(rows, locations: locations)
         } else {
-            printJSON(rows)
+            printJSON(rows, locations: locations)
         }
     }
 
@@ -79,7 +126,7 @@ struct RemRead: ParsableCommand {
         return nil
     }
 
-    func rowToDict(_ row: [String: Any?]) -> [String: Any] {
+    func rowToDict(_ row: [String: Any?], location: [String: Any]?) -> [String: Any] {
         var out: [String: Any] = [:]
         if let id = row["id"] as? Int64 { out["id"] = id }
         if let t = row["title"] as? String { out["title"] = t }
@@ -99,18 +146,22 @@ struct RemRead: ParsableCommand {
         if let l = row["list_name"] as? String { out["list"] = l }
         if let u = row["url"] as? String, !u.isEmpty { out["url"] = u }
         if let pid = row["parent_id"] as? Int64 { out["parent_id"] = pid }
+        if let loc = location { out["location"] = loc }
         return out
     }
 
-    func printJSON(_ rows: [[String: Any?]]) {
-        let dicts = rows.map { rowToDict($0) }
+    func printJSON(_ rows: [[String: Any?]], locations: [String: [String: Any]]) {
+        let dicts = rows.map { row -> [String: Any] in
+            let uid = row["uid"] as? String
+            return rowToDict(row, location: uid.flatMap { locations[$0] })
+        }
         if let data = try? JSONSerialization.data(withJSONObject: dicts, options: [.sortedKeys]),
            let str = String(data: data, encoding: .utf8) {
             print(str)
         }
     }
 
-    func printHuman(_ rows: [[String: Any?]]) {
+    func printHuman(_ rows: [[String: Any?]], locations: [String: [String: Any]]) {
         // Group by list
         var groupMap: [String: [[String: Any?]]] = [:]
         var groupOrder: [String] = []
@@ -145,6 +196,9 @@ struct RemRead: ParsableCommand {
                 print("  \(prefix)[\(id)] \(title)\(dueStr)")
                 if let notes = item["notes"] as? String, !notes.isEmpty {
                     print("      \(notes)")
+                }
+                if let uid = item["uid"] as? String, let loc = locations[uid], let locTitle = loc["title"] as? String {
+                    print("      📍 \(locTitle)")
                 }
             }
         }

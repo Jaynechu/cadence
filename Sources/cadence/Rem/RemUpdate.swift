@@ -16,6 +16,7 @@ struct RemUpdate: ParsableCommand {
     @Option(name: .long, help: "New notes. Pass 'none' to clear.") var notes: String?
     @Option(name: .long, help: "Priority: 0=none, 1=high, 5=medium, 9=low.") var priority: Int?
     @Option(name: .long, help: "Move to a different list by name.") var list: String?
+    @Option(name: .long, help: "New location. Pass 'none' to clear.") var location: String?
 
     func run() throws {
         let db = try SQLiteDB(path: DBPath.reminders)
@@ -90,8 +91,26 @@ struct RemUpdate: ParsableCommand {
                 }
             }
 
+            if let locStr = self.location {
+                if let existingAlarms = item.alarms {
+                    for alarm in existingAlarms where alarm.structuredLocation != nil {
+                        item.removeAlarm(alarm)
+                    }
+                }
+                if locStr.lowercased() == "none" {
+                    changed.append("location=cleared")
+                } else {
+                    let structuredLocation = EKStructuredLocation(title: locStr)
+                    let alarm = EKAlarm()
+                    alarm.structuredLocation = structuredLocation
+                    alarm.proximity = .enter
+                    item.addAlarm(alarm)
+                    changed.append("location=\(locStr)")
+                }
+            }
+
             if changed.isEmpty {
-                fputs("Nothing to update. Pass at least one of --due, --start, --title, --notes, --priority, --list.\n", stderr)
+                fputs("Nothing to update. Pass at least one of --due, --start, --title, --notes, --priority, --list, --location.\n", stderr)
                 Darwin.exit(1)
             }
 

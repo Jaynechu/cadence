@@ -18,6 +18,7 @@ struct RemCreate: ParsableCommand {
     @Option(name: .long, help: "URL.") var url: String?
     @Flag(name: .long, help: "Flag this reminder.") var flag: Bool = false
     @Option(name: .long, help: "Repeat spec FREQ;INTERVAL e.g. monthly;1, yearly;1.") var `repeat`: String?
+    @Option(name: .long, help: "Location name/address — adds a location-based alarm.") var location: String?
 
     func run() throws {
         let dueComps = due.flatMap { DateUtil.smartComponents($0) }
@@ -75,6 +76,15 @@ struct RemCreate: ParsableCommand {
             do {
                 try store.save(reminder, commit: true)
 
+                if let locationString = self.location {
+                    let structuredLocation = EKStructuredLocation(title: locationString)
+                    let alarm = EKAlarm()
+                    alarm.structuredLocation = structuredLocation
+                    alarm.proximity = .enter
+                    reminder.addAlarm(alarm)
+                    try store.save(reminder, commit: true)
+                }
+
                 // If flag requested, use AppleScript after save
                 if self.flag {
                     let safeTitle = ScriptRunner.escapeForAppleScript(self.title)
@@ -82,12 +92,13 @@ struct RemCreate: ParsableCommand {
                     try? ScriptRunner.osascript(script)
                 }
 
-                let out: [String: Any] = [
+                var out: [String: Any] = [
                     "title": reminder.title ?? "",
                     "list": reminder.calendar?.title ?? "",
                     "priority": reminder.priority,
                     "flagged": self.flag
                 ]
+                if let locationString = self.location { out["location"] = locationString }
                 if let data = try? JSONSerialization.data(withJSONObject: out, options: [.sortedKeys]),
                    let str = String(data: data, encoding: .utf8) {
                     print(str)
