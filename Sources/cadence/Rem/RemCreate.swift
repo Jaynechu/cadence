@@ -23,6 +23,7 @@ struct RemCreate: ParsableCommand {
     func run() throws {
         let dueComps = due.flatMap { DateUtil.smartComponents($0) }
         let startComps = start.flatMap { DateUtil.smartComponents($0) }
+        let dueIsDateOnly = due.map { DateUtil.isDateOnly($0) }
 
         let store = EKEventStore()
         store.requestFullAccessToReminders { granted, error in
@@ -75,6 +76,12 @@ struct RemCreate: ParsableCommand {
 
             do {
                 try store.save(reminder, commit: true)
+
+                if let isDateOnly = dueIsDateOnly {
+                    let uid = reminder.calendarItemIdentifier.replacingOccurrences(of: "'", with: "''")
+                    let allDay = isDateOnly ? 1 : 0
+                    try? SQLiteDB.executeRW(path: DBPath.reminders, sql: "UPDATE ZREMCDREMINDER SET ZALLDAY = \(allDay), ZDISPLAYDATEISALLDAY = \(allDay) WHERE ZDACALENDARITEMUNIQUEIDENTIFIER = '\(uid)'")
+                }
 
                 if let locationString = self.location {
                     let structuredLocation = EKStructuredLocation(title: locationString)

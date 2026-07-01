@@ -25,6 +25,11 @@ struct RemUpdate: ParsableCommand {
             throw ValidationError("Reminder id \(id) not found.")
         }
 
+        var dueIsDateOnly: Bool? = nil
+        if let dueStr = due, dueStr.lowercased() != "none" {
+            dueIsDateOnly = DateUtil.isDateOnly(dueStr)
+        }
+
         let store = EKEventStore()
         store.requestFullAccessToReminders { granted, error in
             guard granted else {
@@ -116,6 +121,12 @@ struct RemUpdate: ParsableCommand {
 
             do {
                 try store.save(item, commit: true)
+
+                if let isDateOnly = dueIsDateOnly {
+                    let allDay = isDateOnly ? 1 : 0
+                    try? SQLiteDB.executeRW(path: DBPath.reminders, sql: "UPDATE ZREMCDREMINDER SET ZALLDAY = \(allDay), ZDISPLAYDATEISALLDAY = \(allDay) WHERE Z_PK = \(self.id)")
+                }
+
                 let out: [String: Any] = ["id": self.id, "title": item.title ?? origTitle, "updated": changed]
                 if let data = try? JSONSerialization.data(withJSONObject: out, options: [.sortedKeys]),
                    let str = String(data: data, encoding: .utf8) { print(str) }

@@ -66,5 +66,21 @@ class SQLiteDB {
         return results
     }
 
+    static func executeRW(path: String, sql: String) throws {
+        var rwDb: OpaquePointer?
+        let expanded = NSString(string: path).expandingTildeInPath
+        guard sqlite3_open_v2(expanded, &rwDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK else {
+            let err = String(cString: sqlite3_errmsg(rwDb))
+            throw NSError(domain: "SQLiteDB", code: 4, userInfo: [NSLocalizedDescriptionKey: err])
+        }
+        defer { sqlite3_close(rwDb) }
+        var errmsg: UnsafeMutablePointer<CChar>?
+        guard sqlite3_exec(rwDb, sql, nil, nil, &errmsg) == SQLITE_OK else {
+            let err = errmsg.map { String(cString: $0) } ?? "unknown"
+            sqlite3_free(errmsg)
+            throw NSError(domain: "SQLiteDB", code: 5, userInfo: [NSLocalizedDescriptionKey: err])
+        }
+    }
+
     deinit { if db != nil { sqlite3_close(db) } }
 }
