@@ -22,9 +22,11 @@ struct RemRead: ParsableCommand {
         var whereClause = "WHERE r.ZMARKEDFORDELETION = 0"
 
         let now = Date()
-        let todayStart = DateUtil.toCoreData(DateUtil.startOfDay(now))
-        let todayEnd = DateUtil.toCoreData(DateUtil.endOfDay(now))
-        let weekEnd = DateUtil.toCoreData(DateUtil.endOfDay(now.addingTimeInterval(7 * 86400)))
+        // ZDUEDATE stores local wall-clock time as if it were UTC, so bounds must be
+        // converted with toLocalCoreData (not toCoreData) to match that convention.
+        let todayStart = DateUtil.toLocalCoreData(DateUtil.startOfDay(now))
+        let todayEnd = DateUtil.toLocalCoreData(DateUtil.endOfDay(now))
+        let weekEnd = DateUtil.toLocalCoreData(DateUtil.endOfDay(now.addingTimeInterval(7 * 86400)))
 
         if done {
             whereClause += " AND r.ZCOMPLETED = 1"
@@ -86,10 +88,10 @@ struct RemRead: ParsableCommand {
         if let f = row["flagged"] as? Int64 { out["flagged"] = f != 0 }
         if let c = row["completed"] as? Int64 { out["completed"] = c != 0 }
         if let ts = tsValue(row["due_date"]) {
-            out["due_date"] = DateUtil.formatISO(DateUtil.fromCoreData(ts))
+            out["due_date"] = DateUtil.formatISOFromLocalCoreData(ts)
         }
         if let ts = tsValue(row["start_date"]) {
-            out["start_date"] = DateUtil.formatISO(DateUtil.fromCoreData(ts))
+            out["start_date"] = DateUtil.formatISOFromLocalCoreData(ts)
         }
         if let ts = tsValue(row["completion_date"]) {
             out["completion_date"] = DateUtil.formatISO(DateUtil.fromCoreData(ts))
@@ -136,8 +138,8 @@ struct RemRead: ParsableCommand {
                 else if priority == 5 { prefix += "⚡" }
 
                 var dueStr = ""
-                if let ts = item["due_date"] as? Double {
-                    dueStr = "  due:\(DateUtil.formatISO(DateUtil.fromCoreData(ts)))"
+                if let ts = tsValue(item["due_date"]) {
+                    dueStr = "  due:\(DateUtil.formatISOFromLocalCoreData(ts))"
                 }
 
                 print("  \(prefix)[\(id)] \(title)\(dueStr)")

@@ -12,6 +12,27 @@ enum DateUtil {
         date.timeIntervalSinceReferenceDate
     }
 
+    // Reminders stores ZDUEDATE/ZSTARTDATE as floating local wall-clock time:
+    // the raw timestamp is the local (Melbourne) clock reading, encoded as if it were UTC.
+    // fromCoreData()/formatISO() alone would double-count the Melbourne offset.
+    // This corrects a raw CoreData timestamp back to a true absolute Date before formatting.
+    static func formatISOFromLocalCoreData(_ ts: Double) -> String {
+        let rawDate = fromCoreData(ts)
+        let offset = melbourneTZ.secondsFromGMT(for: rawDate)
+        let corrected = rawDate.addingTimeInterval(-Double(offset))
+        return formatISO(corrected)
+    }
+
+    // Inverse of formatISOFromLocalCoreData: given a true absolute Date, produce the
+    // raw CoreData-style timestamp using the same "local wall clock as UTC" convention
+    // Reminders uses for ZDUEDATE/ZSTARTDATE. Needed for SQL range filters that compare
+    // against those raw columns.
+    static func toLocalCoreData(_ date: Date) -> Double {
+        let offset = melbourneTZ.secondsFromGMT(for: date)
+        let naiveDate = date.addingTimeInterval(Double(offset))
+        return toCoreData(naiveDate)
+    }
+
     static func formatISO(_ date: Date) -> String {
         let f = ISO8601DateFormatter()
         f.timeZone = melbourneTZ
