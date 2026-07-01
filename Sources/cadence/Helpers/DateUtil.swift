@@ -76,4 +76,19 @@ enum DateUtil {
         cal.timeZone = melbourneTZ
         return cal.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
     }
+
+    static func dateOnlyComponentsInMelbourne(_ date: Date) -> DateComponents {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = melbourneTZ
+        return cal.dateComponents([.year, .month, .day], from: date)
+    }
+
+    static func isDateOnly(_ str: String) -> Bool {
+        str.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil
+    }
+
+    static func smartComponents(_ str: String) -> DateComponents? {
+        guard let date = parseInput(str) else { return nil }
+        return isDateOnly(str) ? dateOnlyComponentsInMelbourne(date) : dateComponentsInMelbourne(date)
+    }
 }

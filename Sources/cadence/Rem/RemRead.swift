@@ -35,8 +35,8 @@ struct RemRead: ParsableCommand {
         } else if all {
             whereClause += " AND r.ZCOMPLETED = 0"
         } else {
-            // default: today (due today or overdue, not completed)
-            whereClause += " AND r.ZCOMPLETED = 0 AND (r.ZDUEDATE IS NULL OR r.ZDUEDATE < \(todayEnd))"
+            // default: today (due today only, not completed)
+            whereClause += " AND r.ZCOMPLETED = 0 AND r.ZDUEDATE IS NOT NULL AND r.ZDUEDATE >= \(todayStart) AND r.ZDUEDATE < \(todayEnd)"
         }
 
         if let listFilter = list {

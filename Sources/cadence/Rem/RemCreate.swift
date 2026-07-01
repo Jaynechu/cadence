@@ -10,7 +10,7 @@ struct RemCreate: ParsableCommand {
     )
 
     @Option(name: .long, help: "Title.") var title: String
-    @Option(name: .long, help: "List name (default: Inbox 📫).") var list: String = "Inbox 📫"
+    @Option(name: .long, help: "List name (default: Inbox).") var list: String = "Inbox"
     @Option(name: .long, help: "Due datetime (YYYY-MM-DD HH:MM or YYYY-MM-DD).") var due: String?
     @Option(name: .long, help: "Start datetime (YYYY-MM-DD HH:MM or YYYY-MM-DD).") var start: String?
     @Option(name: .long, help: "Priority: 0=none, 1=high, 5=medium, 9=low.") var priority: Int = 0
@@ -20,8 +20,8 @@ struct RemCreate: ParsableCommand {
     @Option(name: .long, help: "Repeat spec FREQ;INTERVAL e.g. monthly;1, yearly;1.") var `repeat`: String?
 
     func run() throws {
-        let dueDate = due.flatMap { DateUtil.parseInput($0) }
-        let startDate = start.flatMap { DateUtil.parseInput($0) }
+        let dueComps = due.flatMap { DateUtil.smartComponents($0) }
+        let startComps = start.flatMap { DateUtil.smartComponents($0) }
 
         let store = EKEventStore()
         store.requestFullAccessToReminders { granted, error in
@@ -36,11 +36,11 @@ struct RemCreate: ParsableCommand {
             if let n = self.notes { reminder.notes = n }
             if let u = self.url { reminder.url = URL(string: u) }
 
-            if let d = dueDate {
-                reminder.dueDateComponents = DateUtil.dateComponentsInMelbourne(d)
+            if let d = dueComps {
+                reminder.dueDateComponents = d
             }
-            if let s = startDate {
-                reminder.startDateComponents = DateUtil.dateComponentsInMelbourne(s)
+            if let s = startComps {
+                reminder.startDateComponents = s
             }
 
             if let repeatSpec = self.`repeat` {
