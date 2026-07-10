@@ -99,7 +99,7 @@ struct RemCreate: ParsableCommand {
                 if self.flag {
                     let safeTitle = ScriptRunner.escapeForAppleScript(self.title)
                     let script = "tell application \"Reminders\" to set flagged of (first reminder whose name is \"\(safeTitle)\") to true"
-                    try? ScriptRunner.osascript(script)
+                    _ = try? ScriptRunner.osascript(script)
                 }
 
                 var out: [String: Any] = [
