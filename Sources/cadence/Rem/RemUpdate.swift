@@ -124,7 +124,10 @@ struct RemUpdate: ParsableCommand {
 
                 if let isDateOnly = dueIsDateOnly {
                     let allDay = isDateOnly ? 1 : 0
-                    try? SQLiteDB.executeRW(path: DBPath.reminders, sql: "UPDATE ZREMCDREMINDER SET ZALLDAY = \(allDay), ZDISPLAYDATEISALLDAY = \(allDay) WHERE Z_PK = \(self.id)")
+                    try? SQLiteDB.executeRW(
+                        path: DBPath.reminders,
+                        sql: "UPDATE ZREMCDREMINDER SET ZALLDAY = ?, ZDISPLAYDATEISALLDAY = ? WHERE Z_PK = ?",
+                        bindings: [allDay, allDay, self.id])
                 }
 
                 let out: [String: Any] = ["id": self.id, "title": item.title ?? origTitle, "updated": changed]

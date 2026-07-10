@@ -12,7 +12,12 @@ enum DBPath {
            let sqliteFile = files.first(where: { $0.hasSuffix(".sqlite") }) {
             return "\(storesDir)/\(sqliteFile)"
         }
-        return "~/Library/Group Containers/group.com.apple.reminders/Container_v1/Stores/Data-8A2E9A6D-FC6A-4654-8BB0-2ED02C0143B6.sqlite"
+        FileHandle.standardError.write(Data("""
+        cadence: could not locate the Reminders store under \(storesDir).
+        Ensure Reminders is set up and the terminal/binary has Full Disk Access.
+        \n
+        """.utf8))
+        exit(1)
     }
 }
 

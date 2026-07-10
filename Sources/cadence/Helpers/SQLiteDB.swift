@@ -66,7 +66,7 @@ class SQLiteDB {
         return results
     }
 
-    static func executeRW(path: String, sql: String) throws {
+    static func executeRW(path: String, sql: String, bindings: [Any?] = []) throws {
         var rwDb: OpaquePointer?
         let expanded = NSString(string: path).expandingTildeInPath
         guard sqlite3_open_v2(expanded, &rwDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK else {
@@ -74,11 +74,34 @@ class SQLiteDB {
             throw NSError(domain: "SQLiteDB", code: 4, userInfo: [NSLocalizedDescriptionKey: err])
         }
         defer { sqlite3_close(rwDb) }
-        var errmsg: UnsafeMutablePointer<CChar>?
-        guard sqlite3_exec(rwDb, sql, nil, nil, &errmsg) == SQLITE_OK else {
-            let err = errmsg.map { String(cString: $0) } ?? "unknown"
-            sqlite3_free(errmsg)
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(rwDb, sql, -1, &stmt, nil) == SQLITE_OK else {
+            let err = String(cString: sqlite3_errmsg(rwDb))
             throw NSError(domain: "SQLiteDB", code: 5, userInfo: [NSLocalizedDescriptionKey: err])
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        for (idx, binding) in bindings.enumerated() {
+            let pos = Int32(idx + 1)
+            if let b = binding {
+                if let i = b as? Int64 {
+                    sqlite3_bind_int64(stmt, pos, i)
+                } else if let i = b as? Int {
+                    sqlite3_bind_int64(stmt, pos, Int64(i))
+                } else if let d = b as? Double {
+                    sqlite3_bind_double(stmt, pos, d)
+                } else if let s = b as? String {
+                    sqlite3_bind_text(stmt, pos, s, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                }
+            } else {
+                sqlite3_bind_null(stmt, pos)
+            }
+        }
+
+        guard sqlite3_step(stmt) == SQLITE_DONE else {
+            let err = String(cString: sqlite3_errmsg(rwDb))
+            throw NSError(domain: "SQLiteDB", code: 6, userInfo: [NSLocalizedDescriptionKey: err])
         }
     }
 

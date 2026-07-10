@@ -1,8 +1,15 @@
 import Foundation
 
 enum DateUtil {
-    // Change this identifier for your locale
-    static let melbourneTZ = TimeZone(identifier: "Australia/Melbourne")!
+    // Resolved once. Reads CADENCE_TZ if set to a valid identifier, else the
+    // system's current time zone. Override per your locale via the env var.
+    static let melbourneTZ: TimeZone = {
+        if let id = ProcessInfo.processInfo.environment["CADENCE_TZ"],
+           let tz = TimeZone(identifier: id) {
+            return tz
+        }
+        return TimeZone.current
+    }()
 
     static func fromCoreData(_ timestamp: Double) -> Date {
         Date(timeIntervalSinceReferenceDate: timestamp)

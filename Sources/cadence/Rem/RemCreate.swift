@@ -78,9 +78,12 @@ struct RemCreate: ParsableCommand {
                 try store.save(reminder, commit: true)
 
                 if let isDateOnly = dueIsDateOnly {
-                    let uid = reminder.calendarItemIdentifier.replacingOccurrences(of: "'", with: "''")
+                    let uid = reminder.calendarItemIdentifier
                     let allDay = isDateOnly ? 1 : 0
-                    try? SQLiteDB.executeRW(path: DBPath.reminders, sql: "UPDATE ZREMCDREMINDER SET ZALLDAY = \(allDay), ZDISPLAYDATEISALLDAY = \(allDay) WHERE ZDACALENDARITEMUNIQUEIDENTIFIER = '\(uid)'")
+                    try? SQLiteDB.executeRW(
+                        path: DBPath.reminders,
+                        sql: "UPDATE ZREMCDREMINDER SET ZALLDAY = ?, ZDISPLAYDATEISALLDAY = ? WHERE ZDACALENDARITEMUNIQUEIDENTIFIER = ?",
+                        bindings: [allDay, allDay, uid])
                 }
 
                 if let locationString = self.location {
