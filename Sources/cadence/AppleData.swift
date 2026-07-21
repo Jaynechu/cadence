@@ -5,27 +5,27 @@ enum DBPath {
     static let calendar = "~/Library/Group Containers/group.com.apple.calendar/Calendar.sqlitedb"
     static let notes = "~/Library/Group Containers/group.com.apple.Notes/NoteStore.sqlite"
 
-    // Reminders store UUID varies per machine; a Mac can hold several stores
-    // (local + one per iCloud account). Pick the most recently written one
-    // (max mtime of .sqlite and its -wal), or honor CADENCE_REM_STORE.
+    // Reminders store UUID varies per machine; discover the live .sqlite in Stores dir.
+    // A machine can have multiple stores (e.g. stale husks from old iCloud syncs). File
+    // modification dates are unreliable here — background sync daemons (and even read-only
+    // queries, via WAL auto-checkpoint) touch .sqlite/.sqlite-wal/.sqlite-shm on empty husks
+    // too, so mtime can't distinguish them. Pick the store that actually contains reminder rows.
     static var reminders: String {
-        if let override = ProcessInfo.processInfo.environment["CADENCE_REM_STORE"],
-           !override.isEmpty {
-            return NSString(string: override).expandingTildeInPath
-        }
         let storesDir = NSString(string: "~/Library/Group Containers/group.com.apple.reminders/Container_v1/Stores").expandingTildeInPath
         let fm = FileManager.default
-        func lastWrite(_ path: String) -> Date {
-            let dates = [path, path + "-wal"].compactMap {
-                (try? fm.attributesOfItem(atPath: $0))?[.modificationDate] as? Date
-            }
-            return dates.max() ?? .distantPast
-        }
         if let files = try? fm.contentsOfDirectory(atPath: storesDir) {
-            let candidates = files.filter { $0.hasSuffix(".sqlite") }
-                .map { "\(storesDir)/\($0)" }
-            if let best = candidates.max(by: { lastWrite($0) < lastWrite($1) }) {
-                return best
+            let sqliteFiles = files.filter { !$0.hasPrefix(".") && $0.hasSuffix(".sqlite") }
+            func reminderCount(_ sqliteFile: String) -> Int64 {
+                let path = "\(storesDir)/\(sqliteFile)"
+                guard let db = try? SQLiteDB(path: path),
+                      let rows = try? db.query("SELECT COUNT(*) AS c FROM ZREMCDREMINDER"),
+                      let count = rows.first?["c"] as? Int64 else {
+                    return -1
+                }
+                return count
+            }
+            if let sqliteFile = sqliteFiles.max(by: { reminderCount($0) < reminderCount($1) }) {
+                return "\(storesDir)/\(sqliteFile)"
             }
         }
         FileHandle.standardError.write(Data("""
