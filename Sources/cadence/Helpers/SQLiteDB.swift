@@ -10,6 +10,7 @@ class SQLiteDB {
             let err = String(cString: sqlite3_errmsg(db))
             throw NSError(domain: "SQLiteDB", code: 1, userInfo: [NSLocalizedDescriptionKey: err])
         }
+        sqlite3_busy_timeout(db, 3000)
     }
 
     func query(_ sql: String, bindings: [Any?] = []) throws -> [[String: Any?]] {
@@ -74,6 +75,7 @@ class SQLiteDB {
             throw NSError(domain: "SQLiteDB", code: 4, userInfo: [NSLocalizedDescriptionKey: err])
         }
         defer { sqlite3_close(rwDb) }
+        sqlite3_busy_timeout(rwDb, 3000)
 
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(rwDb, sql, -1, &stmt, nil) == SQLITE_OK else {
