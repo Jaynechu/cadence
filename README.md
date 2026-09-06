@@ -112,6 +112,51 @@ cadence rem delete --id <id> --force
 
 Priority values: `0`=none, `1`=high, `5`=medium, `9`=low.
 
+### Weekly placeholder reminders — `cadence rem plan`
+
+Pre-creates one empty placeholder reminder per day so you can fill in a "top task of the day" ahead of time. Each reminder's title is exactly `--prefix`; you type the rest in the Reminders app.
+
+```sh
+cadence rem plan --prefix "Top task: " --list Habit --dry-run
+cadence rem plan --prefix "Top task: " --list Habit
+cadence rem plan --prefix "Top task: " --start 2026-09-21 --days 5 --human
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--prefix` | required | Title of each created reminder |
+| `--list` | `Inbox` | Target reminder list |
+| `--days` | `7` | Number of consecutive days to cover |
+| `--start` | Monday of next week | First day, `YYYY-MM-DD` |
+| `--dry-run` | off | Print the plan, create nothing |
+| `--human` | off | Readable lines instead of JSON |
+
+Due dates are date-only (all-day, no time shown). A day is skipped when a not-completed reminder whose title starts with `--prefix` is already due that day — in **any** list, so a placeholder you moved or created by hand is respected. Running it twice creates nothing the second time.
+
+Output is JSON on stdout: `{"start":"2026-09-07","created":["2026-09-07",…],"skipped":[]}`. It exits non-zero if the list does not exist or Reminders access is denied.
+
+#### Run it every Friday with launchd
+
+`deploy/com.cadence.rem-plan.plist` is a template with four placeholders. Fill them in, install, and start:
+
+```sh
+mkdir -p ~/Library/Logs/cadence ~/Library/LaunchAgents
+
+sed -e "s|__CADENCE_BIN__|$PWD/.build/release/cadence|" \
+    -e "s|__PREFIX__|Top task: |" \
+    -e "s|__LIST__|Habit|" \
+    -e "s|__LOG_DIR__|$HOME/Library/Logs/cadence|" \
+    deploy/com.cadence.rem-plan.plist > ~/Library/LaunchAgents/com.cadence.rem-plan.plist
+
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.cadence.rem-plan.plist
+launchctl kickstart -k gui/$(id -u)/com.cadence.rem-plan   # run once now
+tail ~/Library/Logs/cadence/rem-plan.log
+```
+
+It fires every Friday at 12:00 (`StartCalendarInterval` Weekday 5). To remove it: `launchctl bootout gui/$(id -u)/com.cadence.rem-plan`.
+
+Under launchd the binary runs outside your terminal, so the terminal's permissions do not apply: grant **Full Disk Access** to the `cadence` binary itself, and the Reminders consent must already have been granted by running `cadence rem create` once interactively (a launchd job cannot show the consent prompt). See [Required permissions](#required-permissions).
+
 ### Notes — `cadence note`
 
 ```sh
