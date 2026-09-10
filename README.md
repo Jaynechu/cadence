@@ -84,6 +84,7 @@ cadence rem read --week
 cadence rem read --all
 cadence rem read --done                 # completed reminders
 cadence rem read --list Inbox --human   # filter by list (case-insensitive contains)
+cadence rem read --all --with-location  # also resolve geofence triggers via EventKit (slower)
 
 # List all reminder lists with open counts
 cadence rem lists

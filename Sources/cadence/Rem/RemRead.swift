@@ -18,6 +18,7 @@ struct RemRead: ParsableCommand {
     @Flag(name: .long, help: "Show completed reminders.") var done: Bool = false
     @Flag(name: .long, help: "Output as JSON (default).") var json: Bool = false
     @Flag(name: .long, help: "Human-readable output.") var human: Bool = false
+    @Flag(name: .long, help: "Also fetch location triggers via EventKit (slower; needs Reminders access).") var withLocation: Bool = false
 
     func run() throws {
         let db = try SQLiteDB(path: DBPath.reminders)
@@ -70,7 +71,7 @@ struct RemRead: ParsableCommand {
 
         let rows = try db.query(sql)
 
-        guard !rows.isEmpty else {
+        guard withLocation, !rows.isEmpty else {
             printOutput(rows, locations: [:])
             return
         }
