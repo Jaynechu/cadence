@@ -156,7 +156,7 @@ tail ~/Library/Logs/cadence/rem-plan.log
 
 It fires every Friday at 12:00 (`StartCalendarInterval` Weekday 5). To remove it: `launchctl bootout gui/$(id -u)/com.cadence.rem-plan`.
 
-Under launchd the binary runs outside your terminal, so the terminal's permissions do not apply: grant **Full Disk Access** to the `cadence` binary itself, and the Reminders consent must already have been granted by running `cadence rem create` once interactively (a launchd job cannot show the consent prompt). See [Required permissions](#required-permissions).
+Under launchd the binary runs outside your terminal, so the terminal's permissions do not apply. The template therefore launches `cadence` through `/bin/bash -c` — grant **Full Disk Access** to `/bin/bash` once and it keeps working across rebuilds. (Granting FDA to the `cadence` binary itself also works, but the ad-hoc code signature changes on every rebuild and macOS silently revokes the grant.) The Reminders consent must already have been granted by running `cadence rem create` once interactively (a launchd job cannot show the consent prompt). See [Required permissions](#required-permissions).
 
 ### Notes — `cadence note`
 
