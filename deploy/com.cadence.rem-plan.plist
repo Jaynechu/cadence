@@ -8,9 +8,13 @@
 	<string>Background</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/bin/bash</string>
-		<string>-c</string>
-		<string>exec __CADENCE_BIN__ rem plan --prefix '__PREFIX__' --list '__LIST__'</string>
+		<string>__CADENCE_BIN__</string>
+		<string>rem</string>
+		<string>plan</string>
+		<string>--prefix</string>
+		<string>__PREFIX__</string>
+		<string>--list</string>
+		<string>__LIST__</string>
 	</array>
 	<key>RunAtLoad</key>
 	<false/>

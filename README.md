@@ -17,6 +17,8 @@ swift build -c release
 
 The binary lands at `.build/release/cadence`. For a debug build (`swift build`), it is at `.build/debug/cadence`. Copy it somewhere on your `PATH` or invoke it by full path.
 
+If you plan to run `cadence` from launchd (see [Weekly placeholders](#weekly-placeholders--cadence-rem-plan)), build with `deploy/build.sh [debug|release]` instead. It runs `swift build` and then signs the binary with a local certificate so macOS privacy grants survive rebuilds — see [Stable code signature](#stable-code-signature).
+
 ## Required permissions
 
 `cadence` needs two separate grants to work fully:
@@ -156,7 +158,31 @@ tail ~/Library/Logs/cadence/rem-plan.log
 
 It fires every Friday at 12:00 (`StartCalendarInterval` Weekday 5). To remove it: `launchctl bootout gui/$(id -u)/com.cadence.rem-plan`.
 
-Under launchd the binary runs outside your terminal, so the terminal's permissions do not apply. The template therefore launches `cadence` through `/bin/bash -c` — grant **Full Disk Access** to `/bin/bash` once and it keeps working across rebuilds. (Granting FDA to the `cadence` binary itself also works, but the ad-hoc code signature changes on every rebuild and macOS silently revokes the grant.) The Reminders consent must already have been granted by running `cadence rem create` once interactively (a launchd job cannot show the consent prompt). See [Required permissions](#required-permissions).
+Under launchd the binary runs outside your terminal, so the terminal's permissions do not apply: macOS checks the grants of `cadence` itself. Two things must be true before the job can succeed unattended:
+
+1. **Full Disk Access on the `cadence` binary** (System Settings → Privacy & Security → Full Disk Access → `+` → ⌘⇧G → the real path under `.build/<arch>/debug/`).
+2. **Reminders consent for the `cadence` binary**, which macOS asks for the first time the launchd job writes a reminder. Trigger that first run while you are at the Mac (temporarily move `StartCalendarInterval` a few minutes ahead, or `launchctl kickstart`) and click Allow.
+
+Both grants are bound to the binary's code signature, which is why the binary must be built with `deploy/build.sh` — see [Stable code signature](#stable-code-signature). With a plain `swift build` the ad-hoc signature changes on every rebuild, macOS silently switches the FDA toggle off and re-prompts for Reminders, and the job fails or hangs until someone is at the Mac.
+
+### Stable code signature
+
+macOS ties privacy grants (Full Disk Access, Reminders, Calendars) to the *designated requirement* of the signed binary. An ad-hoc signed Swift build's requirement is its content hash, so every rebuild is a different program to TCC. `deploy/build.sh` signs the binary with a self-signed local certificate instead, giving it a fixed identity (`com.cadence.cli` + that certificate) across rebuilds.
+
+One-time setup of the certificate (login keychain, no admin needed):
+
+```sh
+openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 3650 -nodes \
+  -subj "/CN=cadence-local" \
+  -addext "keyUsage=critical,digitalSignature" -addext "extendedKeyUsage=critical,codeSigning" \
+  -addext "basicConstraints=critical,CA:false"
+openssl pkcs12 -export -out cadence-local.p12 -inkey key.pem -in cert.pem -passout pass:cadence -legacy
+security import cadence-local.p12 -k ~/Library/Keychains/login.keychain-db -P cadence -T /usr/bin/codesign
+security add-trusted-cert -r trustRoot -p codeSign -k ~/Library/Keychains/login.keychain-db cert.pem
+rm key.pem cadence-local.p12
+```
+
+Then `deploy/build.sh` (set `CADENCE_SIGN_IDENTITY` if you named the certificate differently). After the first signed build, remove and re-add `cadence` under Full Disk Access once so the grant records the new identity; from then on rebuilds keep every grant.
 
 ### Notes — `cadence note`
 
