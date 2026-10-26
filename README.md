@@ -119,10 +119,13 @@ Priority values: `0`=none, `1`=high, `5`=medium, `9`=low.
 
 Pre-creates one empty placeholder reminder per day so you can fill in a "top task of the day" ahead of time. Each reminder's title is exactly `--prefix`; you type the rest in the Reminders app.
 
+With `--countdown YYYY-MM-DD` each title becomes `--prefix` plus the number of days left until that target day (Melbourne local days): `--prefix D --countdown 2027-02-26` gives `D122` on 2026-10-27, `D1` on 2027-02-25 and `D0` on the target day. Days after the target are not created.
+
 ```sh
 cadence rem plan --prefix "Top task: " --list Habit --dry-run
 cadence rem plan --prefix "Top task: " --list Habit
 cadence rem plan --prefix "Top task: " --start 2026-09-21 --days 5 --human
+cadence rem plan --prefix D --countdown 2027-02-26 --list Exam --dry-run --human
 ```
 
 | Option | Default | Meaning |
@@ -131,22 +134,24 @@ cadence rem plan --prefix "Top task: " --start 2026-09-21 --days 5 --human
 | `--list` | `Inbox` | Target reminder list |
 | `--days` | `7` | Number of consecutive days to cover |
 | `--start` | Monday of next week | First day, `YYYY-MM-DD` |
+| `--countdown` | off | Target day `YYYY-MM-DD`; title = prefix + days left, nothing after the target |
 | `--dry-run` | off | Print the plan, create nothing |
 | `--human` | off | Readable lines instead of JSON |
 
-Due dates are date-only (all-day, no time shown). A day is skipped when a not-completed reminder whose title starts with `--prefix` is already due that day — in **any** list, so a placeholder you moved or created by hand is respected. Running it twice creates nothing the second time.
+Due dates are date-only (all-day, no time shown). A day is skipped when a not-completed reminder with exactly that day's title (`--prefix`, or `--prefix` + days left with `--countdown`) is already due that day — in **any** list, so a placeholder you moved or created by hand is respected. Running it twice creates nothing the second time.
 
-Output is JSON on stdout: `{"start":"2026-09-07","created":["2026-09-07",…],"skipped":[]}`. It exits non-zero if the list does not exist or Reminders access is denied.
+Output is JSON on stdout: `{"start":"2026-09-07","created":["2026-09-07",…],"skipped":[]}`; `--human` also shows each created title. It exits non-zero if the list does not exist or Reminders access is denied.
 
 #### Run it every Friday with launchd
 
-`deploy/com.cadence.rem-plan.plist` is a template with four placeholders. Fill them in, install, and start:
+`deploy/com.cadence.rem-plan.plist` is a template with five placeholders. Fill them in, install, and start (without a countdown, delete the `--countdown` and `__COUNTDOWN__` lines from the template first):
 
 ```sh
 mkdir -p ~/Library/Logs/cadence ~/Library/LaunchAgents
 
 sed -e "s|__CADENCE_BIN__|$PWD/.build/release/cadence|" \
     -e "s|__PREFIX__|Top task: |" \
+    -e "s|__COUNTDOWN__|2027-02-26|" \
     -e "s|__LIST__|Habit|" \
     -e "s|__LOG_DIR__|$HOME/Library/Logs/cadence|" \
     deploy/com.cadence.rem-plan.plist > ~/Library/LaunchAgents/com.cadence.rem-plan.plist
