@@ -21,9 +21,9 @@
 	<key>RunAtLoad</key>
 	<false/>
 	<key>StandardErrorPath</key>
-	<string>__LOG_DIR__/rem-plan.log</string>
+	<string>__LOG_DIR__/cadence-rem-plan/launchd.log</string>
 	<key>StandardOutPath</key>
-	<string>__LOG_DIR__/rem-plan.log</string>
+	<string>__LOG_DIR__/cadence-rem-plan/launchd.log</string>
 	<key>StartCalendarInterval</key>
 	<dict>
 		<key>Hour</key>

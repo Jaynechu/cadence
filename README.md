@@ -147,18 +147,18 @@ Output is JSON on stdout: `{"start":"2026-09-07","created":["2026-09-07",…],"s
 `deploy/com.cadence.rem-plan.plist` is a template with five placeholders. Fill them in, install, and start (without a countdown, delete the `--countdown` and `__COUNTDOWN__` lines from the template first):
 
 ```sh
-mkdir -p ~/Library/Logs/cadence ~/Library/LaunchAgents
+mkdir -p ~/Library/Logs/cadence-rem-plan ~/Library/LaunchAgents
 
 sed -e "s|__CADENCE_BIN__|$PWD/.build/release/cadence|" \
     -e "s|__PREFIX__|Top task: |" \
     -e "s|__COUNTDOWN__|2027-02-26|" \
     -e "s|__LIST__|Habit|" \
-    -e "s|__LOG_DIR__|$HOME/Library/Logs/cadence|" \
+    -e "s|__LOG_DIR__|$HOME/Library/Logs|" \
     deploy/com.cadence.rem-plan.plist > ~/Library/LaunchAgents/com.cadence.rem-plan.plist
 
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.cadence.rem-plan.plist
 launchctl kickstart -k gui/$(id -u)/com.cadence.rem-plan   # run once now
-tail ~/Library/Logs/cadence/rem-plan.log
+tail ~/Library/Logs/cadence-rem-plan/launchd.log
 ```
 
 It fires every Friday at 12:00 (`StartCalendarInterval` Weekday 5). To remove it: `launchctl bootout gui/$(id -u)/com.cadence.rem-plan`.
