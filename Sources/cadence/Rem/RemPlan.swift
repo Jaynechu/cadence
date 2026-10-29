@@ -141,10 +141,7 @@ struct RemPlan: ParsableCommand {
     }
 
     static func dayKey(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.timeZone = DateUtil.melbourneTZ
-        f.dateFormat = "yyyy-MM-dd"
-        return f.string(from: date)
+        DateUtil.dayFormatter.string(from: date)
     }
 
     static func nextWeekMonday(from date: Date) -> Date {

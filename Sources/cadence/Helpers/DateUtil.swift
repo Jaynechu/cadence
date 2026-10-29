@@ -40,35 +40,39 @@ enum DateUtil {
         return toCoreData(naiveDate)
     }
 
-    static func formatISO(_ date: Date) -> String {
+    private static let isoFormatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.timeZone = melbourneTZ
         f.formatOptions = [.withInternetDateTime]
-        return f.string(from: date)
+        return f
+    }()
+
+    private static func formatter(_ format: String) -> DateFormatter {
+        let f = DateFormatter()
+        f.timeZone = melbourneTZ
+        f.dateFormat = format
+        return f
+    }
+
+    private static let humanFormatter = formatter("HH:mm")
+    private static let dayLabelFormatter = formatter("yyyy-MM-dd (EEE)")
+    private static let dateTimeFormatter = formatter("yyyy-MM-dd HH:mm")
+    static let dayFormatter = formatter("yyyy-MM-dd")
+
+    static func formatISO(_ date: Date) -> String {
+        isoFormatter.string(from: date)
     }
 
     static func formatHuman(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        f.timeZone = melbourneTZ
-        return f.string(from: date)
+        humanFormatter.string(from: date)
     }
 
     static func formatDate(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd (EEE)"
-        f.timeZone = melbourneTZ
-        return f.string(from: date)
+        dayLabelFormatter.string(from: date)
     }
 
     static func parseInput(_ str: String) -> Date? {
-        let f = DateFormatter()
-        f.timeZone = melbourneTZ
-        f.dateFormat = "yyyy-MM-dd HH:mm"
-        if let d = f.date(from: str) { return d }
-        f.dateFormat = "yyyy-MM-dd"
-        if let d = f.date(from: str) { return d }
-        return nil
+        dateTimeFormatter.date(from: str) ?? dayFormatter.date(from: str)
     }
 
     static func startOfDay(_ date: Date) -> Date {
@@ -93,10 +97,7 @@ enum DateUtil {
 
     // Returns start of day for a YYYY-MM-DD string
     static func parseDate(_ str: String) -> Date? {
-        let f = DateFormatter()
-        f.timeZone = melbourneTZ
-        f.dateFormat = "yyyy-MM-dd"
-        return f.date(from: str)
+        dayFormatter.date(from: str)
     }
 
     static func dateComponentsInMelbourne(_ date: Date) -> DateComponents {
